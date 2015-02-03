@@ -43,6 +43,7 @@
            com.amazonaws.services.s3.model.AbortMultipartUploadRequest
            com.amazonaws.services.s3.model.CompleteMultipartUploadRequest
            com.amazonaws.services.s3.model.UploadPartRequest
+           com.amazonaws.services.s3.model.CopyPartRequest
            java.util.concurrent.Executors
            java.io.ByteArrayInputStream
            java.io.File
@@ -216,25 +217,25 @@
       (.setAccessControlList req (create-acl permissions)))
     (.putObject (s3-client cred) req)))
 
-(defn- initiate-multipart-upload
+(defn initiate-multipart-upload
   [cred bucket key] 
   (.getUploadId (.initiateMultipartUpload 
                   (s3-client cred) 
                   (InitiateMultipartUploadRequest. bucket key))))
 
-(defn- abort-multipart-upload
+(defn abort-multipart-upload
   [{cred :cred bucket :bucket key :key upload-id :upload-id}] 
   (.abortMultipartUpload 
     (s3-client cred) 
     (AbortMultipartUploadRequest. bucket key upload-id)))
 
-(defn- complete-multipart-upload
+(defn complete-multipart-upload
   [{cred :cred bucket :bucket key :key upload-id :upload-id e-tags :e-tags}] 
   (.completeMultipartUpload
     (s3-client cred)
     (CompleteMultipartUploadRequest. bucket key upload-id e-tags)))
 
-(defn- upload-part
+(defn upload-part
   [{cred :cred bucket :bucket key :key upload-id :upload-id
     part-size :part-size offset :offset ^java.io.File file :file}] 
   (.getPartETag
@@ -249,6 +250,30 @@
       (.setPartSize ^long (min part-size (- (.length file) offset)))
       (.setFile file)))))
 
+(defn copy-part
+  [{cred :cred
+    dst-bucket :destination-bucket
+    dst-key :destination-key
+    src-bucket :source-bucket
+    src-key :source-key
+    upload-id :upload-id
+    part-number :part-number
+    first-byte :first-byte
+    last-byte :last-byte
+    }] 
+  (.getPartETag
+   (.copyPart
+    (s3-client cred)
+    (doto (CopyPartRequest.)
+      (.setDestinationBucketName dst-bucket)
+      (.setDestinationKey dst-key)
+      (.setSourceBucketName src-bucket)
+      (.setSourceKey src-key)
+      (.setUploadId upload-id)
+      (.setFirstByte first-byte)
+      (.setLastByte last-byte)
+      (.setPartNumber part-number)))))
+      
 (defn put-multipart-object
   "Do a multipart upload of a file into a S3 bucket at the specified key.
   The value must be a java.io.File object.  The entire file is uploaded 
